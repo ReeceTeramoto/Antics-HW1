@@ -29,7 +29,7 @@ class AIPlayer(Player):
     #   inputPlayerId - The id to give the new player (int)
     ##
     def __init__(self, inputPlayerId):
-        super(AIPlayer,self).__init__(inputPlayerId, "AI Template (not implemented)")
+        super(AIPlayer,self).__init__(inputPlayerId, "HW1 AI Player")
     
     ##
     #getPlacement
@@ -53,62 +53,154 @@ class AIPlayer(Player):
     #Return: If setup phase 1: list of eleven 2-tuples of ints -> [(x1,y1), (x2,y2),…,(x10,y10)]
     #       If setup phase 2: list of two 2-tuples of ints -> [(x1,y1), (x2,y2)]
     ##
+    ### Anthill in corner, tunnel at other corner, grass forming a line on the border
     def getPlacement(self, currentState):
-       return None
-    
+        self.myFood = None
+        self.myTunnel = None
+        
+        myAnthillCoord = (0, 0)
+        myTunnelCoord = (9, 0)
+        
+        if currentState.phase == SETUP_PHASE_1:
+            
+            
+            
+            return [myAnthillCoord, (9, 0),
+                    (0,3), (1,3), (2,3), (3,3), \
+                    (4,3), (5,3), (6,3), \
+                    (7,3), (8,3) ];
+        elif currentState.phase == SETUP_PHASE_2:
+            numToPlace = 2
+            moves = []
+            
+            # find the 2 most furthest empty spots from the enemy's anthill
+            
+            # find enemy's anthill
+            enemyAnthillCoord = (15, 15)
+            anthillCoords = [x.coords for x in getConstrList(currentState, None, (ANTHILL,))]
+            # enemy's anthill is the one that is no my anthill's coordinates
+            print "anthill coords: " + str(anthillCoords)
+            for elem in anthillCoords:
+                if elem != myAnthillCoord:
+                    enemyAnthillCoord = elem
+            print "enemy anthill coord: " + str(enemyAnthillCoord)
+            
+            # find 2 furthest empty spots from enemy's anthill
+            allEmptySpots = []
+            for x in range(0, 10):
+                for y in range(6, 10):
+                    spot = (x,y)
+                    # if the spot is empty, get its distance
+                    distance = stepsToReach(currentState, enemyAnthillCoord, spot)
+                    if getConstrAt(currentState, spot) is None:
+                        allEmptySpots.append([distance, spot])
+            # sort all empty spots by distance
+            allEmptySpots = sorted(allEmptySpots, reverse = True)
+            
+            # get the 2 furthest spots from enemy's anthill
+            foodPos1 = allEmptySpots[0][1]
+            foodPos2 = allEmptySpots[1][1]
+            
+            # place the food at these 2 spots
+            moves.append(foodPos1)
+            moves.append(foodPos2)
+            return moves
+            
+        else:
+            return None  #should never happen
+
     ##
     #getMove
-    #Description: The getMove method corresponds to the play phase of the game 
-    #and requests from the player a Move object. All types are symbolic 
-    #constants which can be referred to in Constants.py. The move object has a 
-    #field for type (moveType) as well as field for relevant coordinate 
-    #information (coordList). If for instance the player wishes to move an ant, 
-    #they simply return a Move object where the type field is the MOVE_ANT constant 
-    #and the coordList contains a listing of valid locations starting with an Ant 
-    #and containing only unoccupied spaces thereafter. A build is similar to a move 
-    #except the type is set as BUILD, a buildType is given, and a single coordinate 
-    #is in the list representing the build location. For an end turn, no coordinates 
-    #are necessary, just set the type as END and return.
     #
-    #Parameters:
-    #   currentState - The current state of the game at the time the Game is 
-    #       requesting a move from the player.(GameState)   
+    # This agent simply gathers food as fast as it can with its worker.  It
+    # never attacks and never builds more ants.  The queen is never moved.
     #
-    #Return: Move(moveType [int], coordList [list of 2-tuples of ints], buildType [int]
     ##
     def getMove(self, currentState):
-        return None
-    
+        #Useful pointers
+        myInv = getCurrPlayerInventory(currentState)
+        me = currentState.whoseTurn
+        
+        #the first time this method is called, the food and tunnel locations
+        #need to be recorded in their respective instance variables
+        if (self.myTunnel == None):
+            self.myTunnel = getConstrList(currentState, me, (TUNNEL,))[0]
+        if (self.myFood == None):
+            foods = getConstrList(currentState, None, (FOOD,))
+            self.myFood = foods[0]
+            #find the food closest to the tunnel
+            bestDistSoFar = 1000 #i.e., infinity
+            for food in foods:
+                dist = stepsToReach(currentState, self.myTunnel.coords, food.coords)
+                if (dist < bestDistSoFar):
+                    self.myFood = food
+                    bestDistSoFar = dist
+
+        #if I don't have a worker, give up.  QQ
+        numAnts = len(myInv.ants)
+        if (numAnts == 1):
+            return Move(END, None, None)
+
+        #if the worker has already moved, we're done
+        myWorker = getAntList(currentState, me, (WORKER,))[0]
+        if (myWorker.hasMoved):
+            return Move(END, None, None)
+
+        #if the queen is on the anthill move her
+        myQueen = myInv.getQueen()
+        if (myQueen.coords == myInv.getAnthill().coords):
+            return Move(MOVE_ANT, [myInv.getQueen().coords, (1,0)], None)
+
+        #if the hasn't moved, have her move in place so she will attack
+        if (not myQueen.hasMoved):
+            return Move(MOVE_ANT, [myQueen.coords], None)
+            
+        #if I have the food and the anthill is unoccupied then
+        #make a drone
+        if (myInv.foodCount > 2):
+            if (getAntAt(currentState, myInv.getAnthill().coords) is None):
+                return Move(BUILD, [myInv.getAnthill().coords], DRONE)
+
+        #Move all my drones towards the enemy
+        myDrones = getAntList(currentState, me, (DRONE,))
+        for drone in myDrones:
+            if not (drone.hasMoved):
+                droneX = drone.coords[0]
+                droneY = drone.coords[1]
+                if (droneY < 9):
+                    droneY += 1;
+                else:
+                    droneX += 1;
+                if (droneX,droneY) in listReachableAdjacent(currentState, drone.coords, 3):
+                    return Move(MOVE_ANT, [drone.coords, (droneX, droneY)], None)
+                else:
+                    return Move(MOVE_ANT, [drone.coords], None)
+
+        #if the worker has food, move toward tunnel
+        if (myWorker.carrying):
+            path = createPathToward(currentState, myWorker.coords,
+                                    self.myTunnel.coords, UNIT_STATS[WORKER][MOVEMENT])
+            return Move(MOVE_ANT, path, None)
+                    
+        #if the worker has no food, move toward food
+        else:
+            path = createPathToward(currentState, myWorker.coords,
+                                        self.myFood.coords, UNIT_STATS[WORKER][MOVEMENT])
+            return Move(MOVE_ANT, path, None)
+
+
     ##
     #getAttack
-    #Description: The getAttack method is called on the player whenever an ant completes 
-    #a move and has a valid attack. It is assumed that an attack will always be made 
-    #because there is no strategic advantage from withholding an attack. The AIPlayer 
-    #is passed a copy of the state which again contains the board and also a clone of 
-    #the attacking ant. The player is also passed a list of coordinate tuples which 
-    #represent valid locations for attack. Hint: a random AI can simply return one of 
-    #these coordinates for a valid attack. 
     #
-    #Parameters:
-    #   currentState - The current state of the game at the time the Game is requesting 
-    #       a move from the player. (GameState)
-    #   attackingAnt - A clone of the ant currently making the attack. (Ant)
-    #   enemyLocation - A list of coordinate locations for valid attacks (i.e. 
-    #       enemies within range) ([list of 2-tuples of ints])
+    # This agent never attacks
     #
-    #Return: A coordinate that matches one of the entries of enemyLocations. ((int,int))
-    ##
     def getAttack(self, currentState, attackingAnt, enemyLocations):
-        return None
-        
+        return enemyLocations[0]  #don't care
+
     ##
     #registerWin
-    #Description: The last method, registerWin, is called when the game ends and simply 
-    #indicates to the AI whether it has won or lost the game. This is to help with 
-    #learning algorithms to develop more successful strategies.
     #
-    #Parameters:
-    #   hasWon - True if the player has won the game, False if the player lost. (Boolean)
+    # This agent doens't learn
     #
     def registerWin(self, hasWon):
         #method templaste, not implemented
