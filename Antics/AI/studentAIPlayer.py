@@ -155,7 +155,7 @@ class AIPlayer(Player):
                 if (ant.type == SOLDIER):
                     eSoldiers += 1
                 elif (ant.type == R_SOLDIER):
-                    eSoliders += 1
+                    eSoldiers += 1
                 elif (ant.type == DRONE):
                     eDrones += 1
         #get anthill location
