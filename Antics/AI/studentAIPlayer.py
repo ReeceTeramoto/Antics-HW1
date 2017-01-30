@@ -14,6 +14,18 @@ import time
 #Debug output
 VERBOSE = False
 
+# moves ant to a random empty adjacent square
+def moveAntToRandEmptyAdj(currentState, ant):
+    "move random empty adjacent"
+    adjacentCoords = listReachableAdjacent(currentState, ant.coords, \
+                                           UNIT_STATS[ant.type][MOVEMENT])
+    if (len(adjacentCoords) == 0):
+        adjacentCoords = [ant.coords]
+    moveToCoords = adjacentCoords[random.randint(0, len(adjacentCoords) - 1)]
+    path = createPathToward(currentState, ant.coords, moveToCoords, UNIT_STATS[ant.type][MOVEMENT])
+    return Move(MOVE_ANT, path, None)
+
+
 ##
 #AIPlayer
 #Description: The responsbility of this class is to interact with the game by
@@ -144,29 +156,22 @@ class AIPlayer(Player):
 
 
         myQueen = myInv.getQueen()
-        queenEmptyAdjacent = listAdjacent(myQueen.coords)
-        queenEmptyAdjacent = [x for x in queenEmptyAdjacent if ((getConstrAt(currentState, x) is None) and \
-             getAntAt(currentState, x) is None)]
-        if (len (queenEmptyAdjacent) == 0):
-        	randomQueenEmptyAdjacent = myQueen.coords
-        else:
-            randomQueenEmptyAdjacent = queenEmptyAdjacent[random.randint(0, len(queenEmptyAdjacent) - 1)]
         
         #if the queen is on the anthill move her to a random adjacent empty place
         if (myQueen.coords == myInv.getAnthill().coords):
             if not myQueen.hasMoved:
-                return Move(MOVE_ANT, [myInv.getQueen().coords, randomQueenEmptyAdjacent], None)
+                return moveAntToRandEmptyAdj(currentState, myQueen)
         
         # if the queen is on food and has not moved yet, move her
         if (myQueen.coords in getConstrList(currentState, None, (FOOD,))):
             if not myQueen.hasMoved:
-                return Move(MOVE_ANT, [myInv.getQueen().coords, randomQueenEmptyAdjacent], None)
+                moveAntToRandEmptyAdj(currentState, myQueen)
         # if the queen is near the anthill and has not moved yet, move her
         if (myInv.getAnthill().coords in listAdjacent(myQueen.coords)):
             if (VERBOSE): print "trying to move queen since she is by anthill"
             if (not myQueen.hasMoved):
                 if (VERBOSE): print "queen hasn't moved yet, so we are continuing"
-                return Move(MOVE_ANT, [myInv.getQueen().coords, randomQueenEmptyAdjacent], None)
+                return moveAntToRandEmptyAdj(currentState, myQueen)
 
         #if the hasn't moved, have her move in place so she will attack
         if (not myQueen.hasMoved):
@@ -199,11 +204,7 @@ class AIPlayer(Player):
                 if (antOnHill != None):
                     if (not antOnHill.hasMoved):
                         #randomly move ant out of the way
-                        adjacentCoords = listReachableAdjacent(currentState, anthill.coords, \
-                                                                       UNIT_STATS[antOnHill.type][MOVEMENT])
-                        moveToCoords = adjacentCoords[random.randint(0, len(adjacentCoords) - 1)]
-                        path = createPathToward(currentState, anthill.coords, moveToCoords, UNIT_STATS[antOnHill.type][MOVEMENT])
-                        return Move(MOVE_ANT, path, None)
+                        return moveAntToRandEmptyAdj(currentState, antOnHill)
                 #build soldier!
                 else:
                     return Move(BUILD, [anthill.coords], SOLDIER)
@@ -220,11 +221,7 @@ class AIPlayer(Player):
                 if (antOnHill != None):
                     if (not antOnHill.hasMoved):
                         #randomly move ant out of the way
-                        adjacentCoords = listReachableAdjacent(currentState, anthill.coords, \
-                                                                   UNIT_STATS[antOnHill.type][MOVEMENT])
-                        moveToCoords = adjacentCoords[random.randint(0, len(adjacentCoords) - 1)]
-                        path = createPathToward(currentState, anthill.coords, moveToCoords, UNIT_STATS[antOnHill.type][MOVEMENT])
-                        return Move(MOVE_ANT, path, None)
+                        return moveAntToRandEmptyAdj(currentState, antOnHill)
                 #build drone!
                 else:
                     return Move(BUILD, [anthill.coords], DRONE)
@@ -320,13 +317,7 @@ class AIPlayer(Player):
                                     thingToMoveTowardCoord, UNIT_STATS[WORKER][MOVEMENT])
                     if (len(path) == 1): #stuck on something
                         #randomly move ant out of the way
-                        adjacentCoords = listReachableAdjacent(currentState, worker.coords, \
-                                                                   UNIT_STATS[worker.type][MOVEMENT])
-                        if (len(adjacentCoords) == 0):
-                            adjacentCoords = [worker.coords]
-                        moveToCoords = adjacentCoords[random.randint(0, len(adjacentCoords) - 1)]
-                        path = createPathToward(currentState, worker.coords, moveToCoords, UNIT_STATS[worker.type][MOVEMENT])
-                        return Move(MOVE_ANT, path, None)
+                        return moveAntToRandEmptyAdj(currentState, worker)
                     return Move(MOVE_ANT, path, None)
                 
                 #if the worker has no food, move toward the nearest food
@@ -343,19 +334,13 @@ class AIPlayer(Player):
                     #stuck on something, move randomly to escape
                     if (len(path) == 1): #stuck on something
                         #randomly move ant out of the way
-                        adjacentCoords = listReachableAdjacent(currentState, worker.coords, \
-                                                                   UNIT_STATS[worker.type][MOVEMENT])
-                        if (len(adjacentCoords) == 0):
-                            adjacentCoords = [worker.coords]
-                        moveToCoords = adjacentCoords[random.randint(0, len(adjacentCoords) - 1)]
-                        path = createPathToward(currentState, worker.coords, moveToCoords, UNIT_STATS[worker.type][MOVEMENT])
-                        return Move(MOVE_ANT, path, None)
+                        return moveAntToRandEmptyAdj(currentState, worker)
                     return Move(MOVE_ANT, path, None)
 
 
         
         return Move(END, None, None)
-
+                    
     ##
     #getAttack
     #
@@ -372,3 +357,5 @@ class AIPlayer(Player):
     def registerWin(self, hasWon):
         #method templaste, not implemented
         pass
+
+
