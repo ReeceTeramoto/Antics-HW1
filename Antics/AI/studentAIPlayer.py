@@ -19,7 +19,7 @@ def moveAntToRandEmptyAdj(currentState, ant):
     "move random empty adjacent"
     adjacentCoords = listReachableAdjacent(currentState, ant.coords, \
                                            UNIT_STATS[ant.type][MOVEMENT])
-    if (len(adjacentCoords) == 0):
+    if (len(adjacentCoords) == 0): #if we can't move, stay in the same spot (duh?)
         adjacentCoords = [ant.coords]
     moveToCoords = adjacentCoords[random.randint(0, len(adjacentCoords) - 1)]
     path = createPathToward(currentState, ant.coords, moveToCoords, UNIT_STATS[ant.type][MOVEMENT])
@@ -112,7 +112,7 @@ class AIPlayer(Player):
     #   inputPlayerId - The id to give the new player (int)
     ##
     def __init__(self, inputPlayerId):
-        super(AIPlayer,self).__init__(inputPlayerId, "HW1 AI Player")
+        super(AIPlayer,self).__init__(inputPlayerId, "HW1 Teramoto-Losh")
     
     ##
     #getPlacement
