@@ -297,23 +297,24 @@ class AIPlayer(Player):
           '''
         
         #if the worker has already moved, we're done
-        myWorker = getAntList(currentState, me, (WORKER,))[0]
-        if (myWorker.hasMoved):
-            return Move(END, None, None)
-        
-        #if the worker has food, move toward tunnel
-        if (myWorker.carrying):
-            path = createPathToward(currentState, myWorker.coords,
-                                    self.myTunnel.coords, UNIT_STATS[WORKER][MOVEMENT])
-            return Move(MOVE_ANT, path, None)
-        
-        #if the worker has no food, move toward food
-        else:
-            path = createPathToward(currentState, myWorker.coords,
-                                    self.myFood.coords, UNIT_STATS[WORKER][MOVEMENT])
-            return Move(MOVE_ANT, path, None)
+        if (len(getAntList(currentState, me, (WORKER,))) > 0):
+	        myWorker = getAntList(currentState, me, (WORKER,))[0]
+	        if (myWorker.hasMoved):
+	            return Move(END, None, None)
+	        
+	        #if the worker has food, move toward tunnel
+	        if (myWorker.carrying):
+	            path = createPathToward(currentState, myWorker.coords,
+	                                    self.myTunnel.coords, UNIT_STATS[WORKER][MOVEMENT])
+	            return Move(MOVE_ANT, path, None)
+	        
+	        #if the worker has no food, move toward food
+	        else:
+	            path = createPathToward(currentState, myWorker.coords,
+	                                    self.myFood.coords, UNIT_STATS[WORKER][MOVEMENT])
+	            return Move(MOVE_ANT, path, None)
 
-        
+	        
         
         return Move(END, None, None)
 
