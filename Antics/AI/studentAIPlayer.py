@@ -9,7 +9,10 @@ from Ant import UNIT_STATS
 from Move import Move
 from GameState import addCoords
 from AIPlayerUtils import *
+import time
 
+#Debug output
+VERBOSE = False
 
 ##
 #AIPlayer
@@ -80,11 +83,11 @@ class AIPlayer(Player):
             enemyAnthillCoord = (15, 15)
             anthillCoords = [x.coords for x in getConstrList(currentState, None, (ANTHILL,))]
             # enemy's anthill is the one that is no my anthill's coordinates
-            print "anthill coords: " + str(anthillCoords)
+            if (VERBOSE): print "anthill coords: " + str(anthillCoords)
             for elem in anthillCoords:
                 if elem != myAnthillCoord:
                     enemyAnthillCoord = elem
-            print "enemy anthill coord: " + str(enemyAnthillCoord)
+            if (VERBOSE): print "enemy anthill coord: " + str(enemyAnthillCoord)
             
             # find 2 furthest empty spots from enemy's anthill
             allEmptySpots = []
@@ -123,9 +126,9 @@ class AIPlayer(Player):
         
         #the first time this method is called, the food and tunnel locations
         #need to be recorded in their respective instance variables
-        if (self.myTunnel == None):
+        if (self.myTunnel is None):
             self.myTunnel = getConstrList(currentState, me, (TUNNEL,))[0]
-        if (self.myFood == None):
+        if (self.myFood is None):
             foods = getConstrList(currentState, None, (FOOD,))
             self.myFood = foods
             
@@ -142,29 +145,32 @@ class AIPlayer(Player):
 
         myQueen = myInv.getQueen()
         queenEmptyAdjacent = listAdjacent(myQueen.coords)
-        queenEmptyAdjacent = [x for x in queenEmptyAdjacent if (getConstrAt(currentState, x) is None)]
-        randomQueenEmptyAdjacent = queenEmptyAdjacent[random.randint(0, len(queenEmptyAdjacent) - 1)]
+        queenEmptyAdjacent = [x for x in queenEmptyAdjacent if ((getConstrAt(currentState, x) is None) and \
+             getAntAt(currentState, x) is None)]
+        if (len (queenEmptyAdjacent) == 0):
+        	randomQueenEmptyAdjacent = myQueen.coords
+        else:
+            randomQueenEmptyAdjacent = queenEmptyAdjacent[random.randint(0, len(queenEmptyAdjacent) - 1)]
         
         #if the queen is on the anthill move her to a random adjacent empty place
         if (myQueen.coords == myInv.getAnthill().coords):
             if not myQueen.hasMoved:
                 return Move(MOVE_ANT, [myInv.getQueen().coords, randomQueenEmptyAdjacent], None)
-        '''
+        
         # if the queen is on food and has not moved yet, move her
         if (myQueen.coords in getConstrList(currentState, None, (FOOD,))):
             if not myQueen.hasMoved:
-                return Move(MOVE_ANT, [myInv.getQueen().coords, (1,0)], None)
-                '''
+                return Move(MOVE_ANT, [myInv.getQueen().coords, randomQueenEmptyAdjacent], None)
         # if the queen is near the anthill and has not moved yet, move her
         if (myInv.getAnthill().coords in listAdjacent(myQueen.coords)):
-            print "trying to move queen since she is by anthill"
+            if (VERBOSE): print "trying to move queen since she is by anthill"
             if (not myQueen.hasMoved):
-                print "queen hasn't moved yet, so we are continuing"
+                if (VERBOSE): print "queen hasn't moved yet, so we are continuing"
                 return Move(MOVE_ANT, [myInv.getQueen().coords, randomQueenEmptyAdjacent], None)
 
         #if the hasn't moved, have her move in place so she will attack
         if (not myQueen.hasMoved):
-            print "queen hasn't moved yet, so move her in place"
+            if (VERBOSE): print "queen hasn't moved yet, so move her in place"
             return Move(MOVE_ANT, [myQueen.coords], None)
             
 
@@ -206,7 +212,7 @@ class AIPlayer(Player):
 
         #build a drone if we need to
         if (eDrones > len(getAntList(currentState, me, [DRONE]))):
-            print "trying to build a drone"
+            if (VERBOSE): print "trying to build a drone"
             #do we have enough food to build one?
             if (myInv.foodCount > 2):
                 #move ant on hill out of the way if possible
@@ -224,7 +230,7 @@ class AIPlayer(Player):
                     return Move(BUILD, [anthill.coords], DRONE)
 
         #move soldiers towards anthill
-        print "moving soldiers towards anthill"
+        if (VERBOSE): print "moving soldiers towards anthill"
         soldiers = getAntList(currentState, me, (SOLDIER, R_SOLDIER))
         for soldier in soldiers:
             if (not soldier.hasMoved):
@@ -261,7 +267,7 @@ class AIPlayer(Player):
 
 
         #drones rush towards enemy anthill
-        print "drones rush towards enemy anthill"
+        if (VERBOSE): print "drones rush towards enemy anthill"
         drones = getAntList(currentState, me, (DRONE, ))
         for drone in drones:
             if (not drone.hasMoved):
@@ -280,21 +286,24 @@ class AIPlayer(Player):
 
         #if I don't have two workers, and I have the food, build a worker
         numWorkers = len(getAntList(currentState, me, (WORKER,)))
-        print "numWorkers: " + str(numWorkers)
+        if (VERBOSE): print "numWorkers: " + str(numWorkers)
         if (numWorkers < 2):
-            print "need to build more workers"
+            if (VERBOSE): print "need to build more workers"
             if (myInv.foodCount > 0):
-                return Move(BUILD, [myInv.getAnthill().coords], WORKER)
+            	if (getAntAt(currentState, anthill.coords) is None):
+                	return Move(BUILD, [myInv.getAnthill().coords], WORKER)
 
         
 
 
         myWorkers = getAntList(currentState, me, (WORKER,))
-        print str(myWorkers)
+        if (VERBOSE): print str(myWorkers)
+        #shuffle worker
+        random.shuffle(myWorkers)
         # move the workers
         for worker in myWorkers:
             if not worker.hasMoved:
-                print "moving a worker"
+                if (VERBOSE): print "moving a worker"
                 # if the worker has food and hasn't moved, move toward
                 # the tunnel or anthill; whichever is closer
                 if (worker.carrying):
@@ -309,6 +318,15 @@ class AIPlayer(Player):
                     
                     path = createPathToward(currentState, worker.coords,
                                     thingToMoveTowardCoord, UNIT_STATS[WORKER][MOVEMENT])
+                    if (len(path) == 1): #stuck on something
+                        #randomly move ant out of the way
+                        adjacentCoords = listReachableAdjacent(currentState, worker.coords, \
+                                                                   UNIT_STATS[worker.type][MOVEMENT])
+                        if (len(adjacentCoords) == 0):
+                            adjacentCoords = [worker.coords]
+                        moveToCoords = adjacentCoords[random.randint(0, len(adjacentCoords) - 1)]
+                        path = createPathToward(currentState, worker.coords, moveToCoords, UNIT_STATS[worker.type][MOVEMENT])
+                        return Move(MOVE_ANT, path, None)
                     return Move(MOVE_ANT, path, None)
                 
                 #if the worker has no food, move toward the nearest food
@@ -322,10 +340,19 @@ class AIPlayer(Player):
                             nearestFood = food
                     path = createPathToward(currentState, worker.coords,
                                             nearestFood.coords, UNIT_STATS[WORKER][MOVEMENT])
+                    #stuck on something, move randomly to escape
+                    if (len(path) == 1): #stuck on something
+                        #randomly move ant out of the way
+                        adjacentCoords = listReachableAdjacent(currentState, worker.coords, \
+                                                                   UNIT_STATS[worker.type][MOVEMENT])
+                        if (len(adjacentCoords) == 0):
+                            adjacentCoords = [worker.coords]
+                        moveToCoords = adjacentCoords[random.randint(0, len(adjacentCoords) - 1)]
+                        path = createPathToward(currentState, worker.coords, moveToCoords, UNIT_STATS[worker.type][MOVEMENT])
+                        return Move(MOVE_ANT, path, None)
                     return Move(MOVE_ANT, path, None)
 
 
-        
         
         return Move(END, None, None)
 
