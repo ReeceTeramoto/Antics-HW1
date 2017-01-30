@@ -12,7 +12,7 @@ from AIPlayerUtils import *
 import time
 
 #Debug output
-VERBOSE = False
+VERBOSE = True
 
 # moves ant to a random empty adjacent square
 def moveAntToRandEmptyAdj(currentState, ant):
@@ -24,6 +24,74 @@ def moveAntToRandEmptyAdj(currentState, ant):
     moveToCoords = adjacentCoords[random.randint(0, len(adjacentCoords) - 1)]
     path = createPathToward(currentState, ant.coords, moveToCoords, UNIT_STATS[ant.type][MOVEMENT])
     return Move(MOVE_ANT, path, None)
+
+#
+# Handles queen movement
+#
+def moveQueen(myQueen, myInv, currentState):
+    #if the queen is on the anthill move her to a random adjacent empty place
+    if (myQueen.coords == myInv.getAnthill().coords):
+        if not myQueen.hasMoved:
+            return moveAntToRandEmptyAdj(currentState, myQueen)
+        
+    # if the queen is on food and has not moved yet, move her
+    if (myQueen.coords in getConstrList(currentState, None, (FOOD,))):
+        if not myQueen.hasMoved:
+            moveAntToRandEmptyAdj(currentState, myQueen)
+    # if the queen is near the anthill and has not moved yet, move her
+    if (myInv.getAnthill().coords in listAdjacent(myQueen.coords)):
+        if (VERBOSE): print "trying to move queen since she is by anthill"
+        if (not myQueen.hasMoved):
+            if (VERBOSE): print "queen hasn't moved yet, so we are continuing"
+            return moveAntToRandEmptyAdj(currentState, myQueen)
+    
+    #if the hasn't moved, have her move in place so she will attack
+    if (not myQueen.hasMoved):
+        if (VERBOSE): print "queen hasn't moved yet, so move her in place"
+        return Move(MOVE_ANT, [myQueen.coords], None)
+
+#
+# Handles worker movement
+#
+def moveWorker(worker, currentState, self):
+    if (VERBOSE): print "moving a worker"
+    # if the worker has food and hasn't moved, move toward
+    # the tunnel or anthill; whichever is closer
+    if (worker.carrying):
+        workerTunnelDist = stepsToReach(currentState, worker.coords, self.myTunnel.coords)
+        workerAnthillDist = stepsToReach(currentState, worker.coords, self.myAnthillCoord)
+        
+        thingToMoveTowardCoord = (0,0)
+        if workerAnthillDist < workerTunnelDist:
+            thingToMoveTowardCoord = self.myAnthillCoord
+        else:
+            thingToMoveTowardCoord = self.myTunnel.coords
+        
+        path = createPathToward(currentState, worker.coords,
+                        thingToMoveTowardCoord, UNIT_STATS[WORKER][MOVEMENT])
+        if (len(path) == 1): #stuck on something
+            #randomly move ant out of the way
+            return moveAntToRandEmptyAdj(currentState, worker)
+        return Move(MOVE_ANT, path, None)
+    
+    #if the worker has no food, move toward the nearest food
+    else:
+        nearestFood = self.myFood[0]
+        nearestFoodDist = 1000 # infinity
+        for food in self.myFood:
+            newDist = stepsToReach(currentState, worker.coords, food.coords)
+            if newDist < nearestFoodDist:
+                nearestFoodDist = newDist
+                nearestFood = food
+        path = createPathToward(currentState, worker.coords,
+                                nearestFood.coords, UNIT_STATS[WORKER][MOVEMENT])
+        #stuck on something, move randomly to escape
+        if (len(path) == 1): #stuck on something
+            #randomly move ant out of the way
+            return moveAntToRandEmptyAdj(currentState, worker)
+        return Move(MOVE_ANT, path, None)
+
+
 
 
 ##
@@ -155,29 +223,16 @@ class AIPlayer(Player):
                     '''
 
 
+        # move the queen if she hasn't moved yet
         myQueen = myInv.getQueen()
-        
-        #if the queen is on the anthill move her to a random adjacent empty place
-        if (myQueen.coords == myInv.getAnthill().coords):
-            if not myQueen.hasMoved:
-                return moveAntToRandEmptyAdj(currentState, myQueen)
-        
-        # if the queen is on food and has not moved yet, move her
-        if (myQueen.coords in getConstrList(currentState, None, (FOOD,))):
-            if not myQueen.hasMoved:
-                moveAntToRandEmptyAdj(currentState, myQueen)
-        # if the queen is near the anthill and has not moved yet, move her
-        if (myInv.getAnthill().coords in listAdjacent(myQueen.coords)):
-            if (VERBOSE): print "trying to move queen since she is by anthill"
-            if (not myQueen.hasMoved):
-                if (VERBOSE): print "queen hasn't moved yet, so we are continuing"
-                return moveAntToRandEmptyAdj(currentState, myQueen)
-
+        if not myQueen.hasMoved:
+            return moveQueen(myQueen, myInv, currentState)
+    
+            
         #if the hasn't moved, have her move in place so she will attack
         if (not myQueen.hasMoved):
             if (VERBOSE): print "queen hasn't moved yet, so move her in place"
             return Move(MOVE_ANT, [myQueen.coords], None)
-            
 
         #determine if we need to build a soldier
         antlist = getAntList(currentState)
@@ -292,51 +347,18 @@ class AIPlayer(Player):
 
         
 
-
+        # move all workers
         myWorkers = getAntList(currentState, me, (WORKER,))
+        
+        
         if (VERBOSE): print str(myWorkers)
         #shuffle worker
         random.shuffle(myWorkers)
         # move the workers
         for worker in myWorkers:
             if not worker.hasMoved:
-                if (VERBOSE): print "moving a worker"
-                # if the worker has food and hasn't moved, move toward
-                # the tunnel or anthill; whichever is closer
-                if (worker.carrying):
-                    workerTunnelDist = stepsToReach(currentState, worker.coords, self.myTunnel.coords)
-                    workerAnthillDist = stepsToReach(currentState, worker.coords, self.myAnthillCoord)
-                    
-                    thingToMoveTowardCoord = (0,0)
-                    if workerAnthillDist < workerTunnelDist:
-                        thingToMoveTowardCoord = self.myAnthillCoord
-                    else:
-                        thingToMoveTowardCoord = self.myTunnel.coords
-                    
-                    path = createPathToward(currentState, worker.coords,
-                                    thingToMoveTowardCoord, UNIT_STATS[WORKER][MOVEMENT])
-                    if (len(path) == 1): #stuck on something
-                        #randomly move ant out of the way
-                        return moveAntToRandEmptyAdj(currentState, worker)
-                    return Move(MOVE_ANT, path, None)
                 
-                #if the worker has no food, move toward the nearest food
-                else:
-                    nearestFood = self.myFood[0]
-                    nearestFoodDist = 1000 # infinity
-                    for food in self.myFood:
-                        newDist = stepsToReach(currentState, worker.coords, food.coords)
-                        if newDist < nearestFoodDist:
-                            nearestFoodDist = newDist
-                            nearestFood = food
-                    path = createPathToward(currentState, worker.coords,
-                                            nearestFood.coords, UNIT_STATS[WORKER][MOVEMENT])
-                    #stuck on something, move randomly to escape
-                    if (len(path) == 1): #stuck on something
-                        #randomly move ant out of the way
-                        return moveAntToRandEmptyAdj(currentState, worker)
-                    return Move(MOVE_ANT, path, None)
-
+                return moveWorker(worker, currentState, self)
 
         
         return Move(END, None, None)
