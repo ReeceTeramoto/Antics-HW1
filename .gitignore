@@ -3,3 +3,4 @@ __pycache__/
 Antics/*.py[cod]
 Antics/AI/*.pyc
 *$py.class
+*.pyc
