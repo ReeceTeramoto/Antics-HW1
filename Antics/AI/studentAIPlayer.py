@@ -112,8 +112,7 @@ class AIPlayer(Player):
     ##
     #getMove
     #
-    # This agent simply gathers food as fast as it can with its worker.  It
-    # never attacks and never builds more ants.  The queen is never moved.
+    #
     #
     ##
     def getMove(self, currentState):
@@ -136,14 +135,15 @@ class AIPlayer(Player):
                     self.myFood = food
                     bestDistSoFar = dist
 
-        #if I don't have a worker, give up.  QQ
-        numAnts = len(myInv.ants)
-        if (numAnts == 1):
-            return Move(END, None, None)
 
-        #if the worker has already moved, we're done
-        myWorker = getAntList(currentState, me, (WORKER,))[0]
-        if (myWorker.hasMoved):
+
+        #if all of my workers have moved, we're done
+        myWorkers = getAntList(currentState, me, (WORKER,))
+        allWorkersMoved = True
+        for worker in myWorkers:
+            if not (worker.hasMoved):
+                allWorkersMoved = False
+        if allWorkersMoved:
             return Move(END, None, None)
 
         #if the queen is on the anthill move her
@@ -176,18 +176,25 @@ class AIPlayer(Player):
                 else:
                     return Move(MOVE_ANT, [drone.coords], None)
 
-        #if the worker has food, move toward tunnel
-        if (myWorker.carrying):
-            path = createPathToward(currentState, myWorker.coords,
+        #for each worker, if the worker has food, move toward tunnel
+        for worker in myWorkers:
+            if (worker.carrying):
+                path = createPathToward(currentState, worker.coords,
                                     self.myTunnel.coords, UNIT_STATS[WORKER][MOVEMENT])
-            return Move(MOVE_ANT, path, None)
+                return Move(MOVE_ANT, path, None)
                     
-        #if the worker has no food, move toward food
-        else:
-            path = createPathToward(currentState, myWorker.coords,
+            #if the worker has no food, move toward food
+            else:
+                path = createPathToward(currentState, worker.coords,
                                         self.myFood.coords, UNIT_STATS[WORKER][MOVEMENT])
-            return Move(MOVE_ANT, path, None)
+                return Move(MOVE_ANT, path, None)
 
+        #if I don't have two workers, and I have the food, build a worker
+        numWorkers = len(getAntList(currentState, me, (WORKER,)))
+        print "numWorkers: " + str(numWorkers)
+        if (numWorkers < 2):
+            if (myInv.foodCount > 0):
+                return Move(BUILD, [myInv.getAnthill().coords], WORKER)
 
     ##
     #getAttack
