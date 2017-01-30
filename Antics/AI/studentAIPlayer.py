@@ -135,17 +135,6 @@ class AIPlayer(Player):
                     self.myFood = food
                     bestDistSoFar = dist
 
-
-
-        #if all of my workers have moved, we're done
-        myWorkers = getAntList(currentState, me, (WORKER,))
-        allWorkersMoved = True
-        for worker in myWorkers:
-            if not (worker.hasMoved):
-                allWorkersMoved = False
-        if allWorkersMoved:
-            return Move(END, None, None)
-
         #if the queen is on the anthill move her
         myQueen = myInv.getQueen()
         if (myQueen.coords == myInv.getAnthill().coords):
@@ -155,46 +144,178 @@ class AIPlayer(Player):
         if (not myQueen.hasMoved):
             return Move(MOVE_ANT, [myQueen.coords], None)
             
-        #if I have the food and the anthill is unoccupied then
-        #make a drone
-        if (myInv.foodCount > 2):
-            if (getAntAt(currentState, myInv.getAnthill().coords) is None):
-                return Move(BUILD, [myInv.getAnthill().coords], DRONE)
 
-        #Move all my drones towards the enemy
-        myDrones = getAntList(currentState, me, (DRONE,))
-        for drone in myDrones:
-            if not (drone.hasMoved):
-                droneX = drone.coords[0]
-                droneY = drone.coords[1]
-                if (droneY < 9):
-                    droneY += 1;
+        #determine if we need to build a soldier
+        antlist = getAntList(currentState)
+        #check for enemy soldiers / drones / ranged soldiers
+        eSoldiers = 0
+        eDrones = 0
+        for ant in antlist:
+            if (ant.player != me):
+                if (ant.type == SOLDIER):
+                    eSoldiers += 1
+                elif (ant.type == R_SOLDIER):
+                    eSoliders += 1
+                elif (ant.type == DRONE):
+                    eDrones += 1
+        #get anthill location
+        anthill = myInv.getAnthill()
+        #determine if we need to make a soldier
+        # if (eSoldiers > len(getAntList(currentState, me, (SOLDIER,R_SOLDIER)))):
+        if (True):
+        #do we have enough food to build one?
+            if (myInv.foodCount > 3):
+                #move ant on hill out of the way if possible
+                antOnHill = getAntAt(currentState, anthill.coords)
+                if (antOnHill != None):
+                    if (not antOnHill.hasMoved):
+                        #randomly move ant out of the way
+                        adjacentCoords = listReachableAdjacent(currentState, anthill.coords, \
+                                                                       UNIT_STATS[antOnHill.type][MOVEMENT])
+                        moveToCoords = adjacentCoords[random.randint(0, len(adjacentCoords))]
+                        path = createPathToward(currentState, anthill.coords, moveToCoords, UNIT_STATS[antOnHill.type][MOVEMENT])
+                        return Move(MOVE_ANT, path, None)
+                #build soldier!
                 else:
-                    droneX += 1;
-                if (droneX,droneY) in listReachableAdjacent(currentState, drone.coords, 3):
-                    return Move(MOVE_ANT, [drone.coords, (droneX, droneY)], None)
-                else:
-                    return Move(MOVE_ANT, [drone.coords], None)
+                    return Move(BUILD, [anthill.coords], SOLDIER)
 
+
+
+        #build a drone if we need to
+        if (eDrones > len(getAntList(currentState, me, [DRONE]))):
+            print "trying to build a drone"
+            #do we have enough food to build one?
+            if (myInv.foodCount > 2):
+                #move ant on hill out of the way if possible
+                antOnHill = getAntAt(currentState, anthill.coords)
+                if (antOnHill != None):
+                    if (not antOnHill.hasMoved):
+                        #randomly move ant out of the way
+                        adjacentCoords = listReachableAdjacent(currentState, anthill.coords, \
+                                                                   UNIT_STATS[antOnHill.type][MOVEMENT])
+                        moveToCoords = adjacentCoords[random.randint(0, len(adjacentCoords))]
+                        path = createPathToward(currentState, anthill.coords, moveToCoords, UNIT_STATS[antOnHill.type][MOVEMENT])
+                        return Move(MOVE_ANT, path, None)
+                #build drone!
+                else:
+                    return Move(BUILD, [anthill.coords], DRONE)
+
+        #move soldiers towards anthill
+        print "moving soldiers towards anthill"
+        soldiers = getAntList(currentState, me, (SOLDIER, R_SOLDIER))
+        for soldier in soldiers:
+            if (not soldier.hasMoved):
+                enemyAnts = []
+                for ant in antlist:
+                    if (ant.player != me):
+                        enemyAnts.append(ant)
+                #ants to attack
+                workerTarget = None
+                soldierTarget = None
+                #look for ants to attack
+                for ant in enemyAnts:
+                    if (ant.type == WORKER):
+                        workerTarget = ant.coords
+                    if (ant.type == SOLDIER or ant.type == R_SOLDIER or ant.type == DRONE):
+                        soldierTarget = ant.coords
+                #try to attack fighting ants first, then workers, then anthill
+                if (soldierTarget != None):
+                    path = createPathToward(currentState, soldier.coords, soldierTarget, UNIT_STATS[SOLDIER][MOVEMENT])
+                    return Move(MOVE_ANT, path, None)
+                elif (workerTarget != None):
+                    path = createPathToward(currentState, soldier.coords, workerTarget, UNIT_STATS[SOLDIER][MOVEMENT])
+                    return Move(MOVE_ANT, path, None)
+                else:
+                    enemyAnthill = None
+                    antHillList = getConstrList(currentState, None, [ANTHILL])
+                    for anthill in antHillList:
+                        if (anthill.player != me):
+                            enemyAnthill = anthill
+                    antOnHill = getAntAt(currentState, enemyAnthill.coords)
+                    if (soldier.coords != enemyAnthill.coords):
+                        path = createPathToward(currentState, soldier.coords, enemyAnthill.coords, UNIT_STATS[SOLDIER][MOVEMENT])
+                        return Move(MOVE_ANT, path, None)
+
+
+        #drones rush towards enemy anthill
+        print "drones rush towards enemy anthill"
+        drones = getAntList(currentState, me, (DRONE, ))
+        for drone in drones:
+            if (not drone.hasMoved):
+                enemyAnthill = None
+                antHillList = getConstrList(currentState, None, [ANTHILL])
+                for anthill in antHillList:
+                    if (anthill.player != me):
+                        enemyAnthill = anthill
+                antOnHill = getAntAt(currentState, enemyAnthill.coords)
+                if (drone.coords != enemyAnthill.coords):
+                    path = createPathToward(currentState, drone.coords, enemyAnthill.coords, UNIT_STATS[DRONE][MOVEMENT])
+                    return Move(MOVE_ANT, path, None)
+
+
+
+
+        #if I don't have two workers, and I have the food, build a worker
+        #commented out right now
+        '''
+        numWorkers = len(getAntList(currentState, me, (WORKER,)))
+        print "numWorkers: " + str(numWorkers)
+        if (numWorkers < 2):
+            print "need to build more workers"
+            if (myInv.foodCount > 0):
+                return Move(BUILD, [myInv.getAnthill().coords], WORKER)
+        '''
+        
         #for each worker, if the worker has food, move toward tunnel
+        '''
+        myWorkers = getAntList(currentState, me, (WORKER,))
+        print str(myWorkers)
         for worker in myWorkers:
+            print "moving a worker"
             if (worker.carrying):
                 path = createPathToward(currentState, worker.coords,
-                                    self.myTunnel.coords, UNIT_STATS[WORKER][MOVEMENT])
+                                self.myTunnel.coords, UNIT_STATS[WORKER][MOVEMENT])
                 return Move(MOVE_ANT, path, None)
-                    
+            
             #if the worker has no food, move toward food
             else:
                 path = createPathToward(currentState, worker.coords,
                                         self.myFood.coords, UNIT_STATS[WORKER][MOVEMENT])
                 return Move(MOVE_ANT, path, None)
+        '''
+        '''
+        #if all of my workers have moved, we're done
+        print "checking if all workers have moved"
+        myWorkers = getAntList(currentState, me, (WORKER,))
+        allWorkersMoved = True
+        for worker in myWorkers:
+            if not (worker.hasMoved):
+                allWorkersMoved = False
+        if allWorkersMoved:
+            print "all of my workers have moved"
+            return Move(END, None, None)
+          '''
+        
+        #if the worker has already moved, we're done
+        myWorker = getAntList(currentState, me, (WORKER,))[0]
+        if (myWorker.hasMoved):
+            return Move(END, None, None)
+        
+        #if the worker has food, move toward tunnel
+        if (myWorker.carrying):
+            path = createPathToward(currentState, myWorker.coords,
+                                    self.myTunnel.coords, UNIT_STATS[WORKER][MOVEMENT])
+            return Move(MOVE_ANT, path, None)
+        
+        #if the worker has no food, move toward food
+        else:
+            path = createPathToward(currentState, myWorker.coords,
+                                    self.myFood.coords, UNIT_STATS[WORKER][MOVEMENT])
+            return Move(MOVE_ANT, path, None)
 
-        #if I don't have two workers, and I have the food, build a worker
-        numWorkers = len(getAntList(currentState, me, (WORKER,)))
-        print "numWorkers: " + str(numWorkers)
-        if (numWorkers < 2):
-            if (myInv.foodCount > 0):
-                return Move(BUILD, [myInv.getAnthill().coords], WORKER)
+        
+        
+        return Move(END, None, None)
 
     ##
     #getAttack
